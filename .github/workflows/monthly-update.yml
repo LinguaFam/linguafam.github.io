@@ -1,0 +1,50 @@
+name: Monthly Site Update
+
+on:
+  # Runs automatically on 1st of every month at 6:00 AM IST (00:30 UTC)
+  schedule:
+    - cron: '30 0 1 * *'
+
+  # Also lets you trigger it manually from GitHub → Actions tab
+  workflow_dispatch:
+
+jobs:
+  update-site:
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: write   # needed to commit updated files back to repo
+
+    steps:
+
+      # 1. Check out your repository
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      # 2. Set up Python
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      # 3. Install dependencies
+      - name: Install dependencies
+        run: pip install requests beautifulsoup4
+
+      # 4. Run the scraper (updates data.json with latest UrbanPro data)
+      - name: Scrape UrbanPro
+        run: python scrape_urbanpro.py
+        continue-on-error: true   # if scraping fails, we still rebuild with existing data
+
+      # 5. Rebuild the site from data.json
+      - name: Build site
+        run: python build_site.py
+
+      # 6. Commit and push the updated files back to GitHub
+      - name: Commit updated site
+        run: |
+          git config user.name  "GitHub Actions"
+          git config user.email "actions@github.com"
+          git add index.html data.json
+          git diff --cached --quiet || git commit -m "Auto update: $(date +'%B %Y')"
+          git push
